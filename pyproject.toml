@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flashsmelter"
+version = "1.0.0"
+description = "铜闪速熔炼炉精矿喷吹与放铜控制平台（FlashSmelter）"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Smelter Control Team" }]
+dependencies = []
+
+[project.scripts]
+flashsmelter = "flashsmelter.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["flashsmelter*"]
+
+[tool.setuptools]
+package-dir = { "" = "." }
