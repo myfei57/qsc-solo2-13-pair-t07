@@ -17,6 +17,15 @@ from .errors import ConfigurationError, ValidationError
 ENV_PREFIX = "FLASHSMELTER_"
 
 
+def _to_bool(raw: str) -> bool:
+    text = str(raw).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"无法解析布尔取值：{raw!r}")
+
+
 def _read_env(environ: Mapping[str, str]) -> dict[str, Any]:
     values: dict[str, Any] = {}
     for name, caster in _ENV_FIELDS.items():
@@ -66,6 +75,10 @@ _ENV_FIELDS: dict[str, Any] = {
     "furnace_purge_seconds": float,
     "furnace_min_smelt_dwell_seconds": float,
     "furnace_transition_timeout_seconds": float,
+    "fire_zones": str,
+    "fire_pumps": str,
+    "fire_confirm_window_seconds": float,
+    "fire_auto_execute": _to_bool,
 }
 
 
@@ -120,6 +133,12 @@ class Settings:
     furnace_purge_seconds: float = 15.0
     furnace_min_smelt_dwell_seconds: float = 45.0
     furnace_transition_timeout_seconds: float = 600.0
+
+    # 消防联动：防火分区、消防泵组、确认窗口与自动/手动模式。
+    fire_zones: str = "reaction-tower,settler,oxygen-station,pump-room"
+    fire_pumps: str = "FP-01,FP-02"
+    fire_confirm_window_seconds: float = 30.0
+    fire_auto_execute: bool = True
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None, **overrides: Any) -> "Settings":
@@ -241,6 +260,20 @@ class Settings:
                     "timeout": self.furnace_transition_timeout_seconds,
                     "purge": self.furnace_purge_seconds,
                 },
+            )
+        fire_zones = [zone.strip() for zone in self.fire_zones.split(",") if zone.strip()]
+        if not fire_zones:
+            raise ValidationError("防火分区至少配置一个", details={"fire_zones": self.fire_zones})
+        if len(set(fire_zones)) != len(fire_zones):
+            raise ValidationError("防火分区配置存在重复", details={"fire_zones": self.fire_zones})
+        fire_pumps = [pump.strip() for pump in self.fire_pumps.split(",") if pump.strip()]
+        if not fire_pumps:
+            raise ValidationError("消防泵至少配置一台", details={"fire_pumps": self.fire_pumps})
+        if len(set(fire_pumps)) != len(fire_pumps):
+            raise ValidationError("消防泵配置存在重复", details={"fire_pumps": self.fire_pumps})
+        if self.fire_confirm_window_seconds <= 0:
+            raise ValidationError(
+                "联动确认窗口必须为正", details={"window": self.fire_confirm_window_seconds}
             )
 
     def with_root(self, root: Path | str) -> "Settings":

@@ -15,6 +15,7 @@ from .conc import ConcentrateSystem
 from .config import Settings
 from .conv import Converter
 from .errors import ValidationError
+from .fire import FireLinkage
 from .furnace import FlashFurnace
 from .matte import MatteTap
 from .ns import Namespace
@@ -81,6 +82,7 @@ class Application:
         self.slag.bind_matte(self.matte)
         self.matte.bind_converter(self.conv)
         self.oxygen.bind_feed_port(self.conc)
+        self.fire = FireLinkage(ctx)
         self.components: tuple[Component, ...] = (
             self.furnace,
             self.burner,
@@ -91,6 +93,7 @@ class Application:
             self.matte,
             self.conv,
             self.waste,
+            self.fire,
         )
         self._by_name: dict[str, Component] = {component.name: component for component in self.components}
 
@@ -516,6 +519,54 @@ class Application:
                 drum_level=params.number("drum_level", minimum=0.0, maximum=1.0),
                 exhaust_temp_c=params.number("exhaust_temp_c", minimum=0.0),
                 tube_leak=params.boolean("tube_leak", required=False, default=False),
+                correlation_id=params.optional_text("correlation_id"),
+                expected_generation=params.optional_number("expected_generation"),
+            )
+
+        @register("fire.report")
+        def _fire_report(params: Params) -> Mapping[str, Any]:
+            return self.fire.report(
+                params.text("actor", required=False, default="detector-loop"),
+                detector_id=params.text("detector_id"),
+                zone=params.text("zone"),
+                kind=params.text("kind", required=False, default="auto"),
+                correlation_id=params.optional_text("correlation_id"),
+                expected_generation=params.optional_number("expected_generation"),
+            )
+
+        @register("fire.confirm")
+        def _fire_confirm(params: Params) -> Mapping[str, Any]:
+            return self.fire.confirm(
+                params.text("actor", required=False, default="control-room"),
+                zone=params.text("zone"),
+                order_id=params.optional_text("order_id"),
+                correlation_id=params.optional_text("correlation_id"),
+                expected_generation=params.optional_number("expected_generation"),
+            )
+
+        @register("fire.abort")
+        def _fire_abort(params: Params) -> Mapping[str, Any]:
+            return self.fire.abort(
+                params.text("actor", required=False, default="control-room"),
+                zone=params.text("zone"),
+                reason=params.text("reason"),
+                correlation_id=params.optional_text("correlation_id"),
+                expected_generation=params.optional_number("expected_generation"),
+            )
+
+        @register("fire.scan")
+        def _fire_scan(params: Params) -> Mapping[str, Any]:
+            return self.fire.scan(
+                params.text("actor", required=False, default="control-system"),
+                correlation_id=params.optional_text("correlation_id"),
+            )
+
+        @register("fire.reset")
+        def _fire_reset(params: Params) -> Mapping[str, Any]:
+            return self.fire.reset(
+                params.text("actor", required=False, default="control-room"),
+                zone=params.text("zone"),
+                note=params.text("note"),
                 correlation_id=params.optional_text("correlation_id"),
                 expected_generation=params.optional_number("expected_generation"),
             )
